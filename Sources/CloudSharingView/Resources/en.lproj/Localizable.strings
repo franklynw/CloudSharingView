@@ -1,0 +1,11 @@
+/* 
+  Localizable.strings
+  Listy
+
+  Created by Franklyn Weber on 15/01/2021.
+  
+*/
+
+"ShareList" = "Share '%@'";
+"ShareGenericList" = "Share your list";
+"Item" = "Item";
