@@ -11,34 +11,34 @@ import CloudKit
 
 class SharingController: UICloudSharingController, UICloudSharingControllerDelegate {
     
-    @Binding private var isPresented: Bool
     var image: UIImage?
     
+    private let response: (Result<Void, Error>) -> ()
     
-    init(isPresented: Binding<Bool>, share: CKShare, container: CKContainer) {
-        _isPresented = isPresented
+    
+    init(share: CKShare, container: CKContainer, response: @escaping (Result<Void, Error>) -> ()) {
+        self.response = response
         super.init(share: share, container: container)
         delegate = self
     }
     
-    init(isPresented: Binding<Bool>, title: String, preparationHandler: @escaping (UICloudSharingController, @escaping (CKShare?, CKContainer?, Error?) -> Void) -> Void) {
-        _isPresented = isPresented
+    init(title: String, preparationHandler: @escaping (UICloudSharingController, @escaping (CKShare?, CKContainer?, Error?) -> Void) -> Void, response: @escaping (Result<Void, Error>) -> ()) {
+        self.response = response
         super.init(preparationHandler: preparationHandler)
         self.title = title
         delegate = self
     }
     
     deinit {
-        isPresented = false
         print("deinit sharing controller")
     }
     
     func cloudSharingControllerDidSaveShare(_ csc: UICloudSharingController) {
-        
+        response(.success(()))
     }
     
     func cloudSharingController(_ csc: UICloudSharingController, failedToSaveShareWithError error: Error) {
-        
+        response(.failure(error))
     }
     
     func cloudSharingControllerDidStopSharing(_ csc: UICloudSharingController) {

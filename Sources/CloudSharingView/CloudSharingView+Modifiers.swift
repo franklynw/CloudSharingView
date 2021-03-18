@@ -11,19 +11,11 @@ import CloudKit
 
 extension CloudSharingView {
     
-    /// The name of the share displayed in the controller
-    /// - Parameter name: a String
-    public func shareName(_ name: String) -> Self {
-        var copy = self
-        copy.name = name
-        return copy
-    }
-    
     /// The thumbnail image shown in the sharing controller
     /// - Parameter thumbnailImage: a UIImage
     public func thumbnailImage(_ thumbnailImage: UIImage?) -> Self {
         var copy = self
-        copy.image = thumbnailImage
+        copy.thumbnailImage = thumbnailImage
         return copy
     }
     
