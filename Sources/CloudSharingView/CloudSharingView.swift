@@ -9,7 +9,7 @@ import CloudKit
 
 
 public protocol CloudSharable {
-    var record: CKRecord { get }
+    var sharedRecord: CKRecord { get }
     var shareName: String { get }
     var image: UIImage? { get }
 }
@@ -63,12 +63,12 @@ public struct CloudSharingView: View {
     
     private func presentSharingController() -> EmptyView {
         
-        let share = CKShare(rootRecord: itemToShare.record)
+        let share = CKShare(rootRecord: itemToShare.sharedRecord)
         share["CKShareTitleKey"] = itemToShare.shareName
         
         let controller = SharingController(title: itemToShare.shareName) { cloudSharingController, handler in
             
-            let makeSharedList = CKModifyRecordsOperation(recordsToSave: [itemToShare.record, share], recordIDsToDelete: nil)
+            let makeSharedList = CKModifyRecordsOperation(recordsToSave: [itemToShare.sharedRecord, share], recordIDsToDelete: nil)
             
             makeSharedList.modifyRecordsCompletionBlock = { record, recordId, error in
                 handler(share, CKContainer.default(), error)
