@@ -25,7 +25,6 @@ class CloudSharingController: UICloudSharingController {
     }
     
     deinit {
-        print("deinit CloudSharingController")
         isPresented = false // just in case it gets dismissed for any uncovered reason
     }
 }

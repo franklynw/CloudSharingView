@@ -10,7 +10,7 @@ import SwiftUI
 import CloudKit
 
 
-class SharingCoordinator: NSObject, UICloudSharingControllerDelegate, ObservableObject {
+class SharingCoordinator: NSObject, ObservableObject {
     
     enum SharingError: Error {
         case nilShare
@@ -64,11 +64,15 @@ class SharingCoordinator: NSObject, UICloudSharingControllerDelegate, Observable
         
         UIApplication.window?.rootViewController?.present(sharingController, animated: true)
     }
+}
+
+
+extension SharingCoordinator: UICloudSharingControllerDelegate {
     
     func cloudSharingControllerDidSaveShare(_ csc: UICloudSharingController) {
         
         guard let rootRecord = rootRecord, let share = self.share else {
-            response(.failure(SharingError.nilShare))
+            response(.failure(SharingError.nilShare)) // shouldn't be able to happen
             return
         }
         
