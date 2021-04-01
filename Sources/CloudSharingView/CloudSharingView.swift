@@ -10,7 +10,8 @@ import TopAlert
 
 
 public protocol CloudSharable {
-    var record: CKRecord { get }
+    var rootRecord: CKRecord { get }
+    var sharedRecordId: CKRecord.ID? { get }
     var shareName: String { get }
     var image: UIImage? { get }
 }
@@ -23,13 +24,16 @@ public extension CloudSharable {
 }
 
 
+public typealias SharingResult = Result<(rootRecord: CKRecord, share: CKShare), Error>
+
+
 public struct CloudSharingView: View {
     
     @StateObject private var sharingCoordinator = SharingCoordinator()
     @Binding internal var isPresented: Bool
     @State private var topAlertConfig: TopAlert.AlertConfig?
     
-    internal let itemToShare: CloudSharable
+    internal let itemToShare: () -> (share: CloudSharable?, done: (SharingResult) -> ())
     
     internal var container: CKContainer = .default()
     internal var sharedZoneName: String?
@@ -47,9 +51,9 @@ public struct CloudSharingView: View {
     }
     
     
-    public init(isPresented: Binding<Bool>, itemToShare: CloudSharable) {
+    public init(isPresented: Binding<Bool>, share: @escaping () -> (share: CloudSharable?, done: (SharingResult) -> ())) {
         _isPresented = isPresented
-        self.itemToShare = itemToShare
+        self.itemToShare = share
     }
     
     public var body: some View {
@@ -62,6 +66,48 @@ public struct CloudSharingView: View {
     }
     
     private func presentSharingController() -> EmptyView {
+        
+        guard let share = itemToShare().share else {
+            return EmptyView()
+        }
+        
+        if let shareId = share.sharedRecordId {
+            shareExisting(share, with: shareId)
+        } else {
+            createNew(share)
+        }
+        
+        return EmptyView()
+    }
+    
+    private func shareExisting(_ share: CloudSharable, with shareId: CKRecord.ID) {
+        
+        container.privateCloudDatabase.fetch(withRecordID: shareId) { record, error in
+            
+            guard let sharedRecord = record as? CKShare else {
+                
+                let title = NSLocalizedString("ShareDeletedTitle", bundle: .module, comment: "Share deleted title")
+                let message = NSLocalizedString("ShareDeletedMessage", bundle: .module, comment: "Share deleted message")
+                
+                let createNewButton = TopAlert.AlertConfig.ButtonType.default(title: "") {
+                    createNew(share)
+                }
+                let cancelButton = TopAlert.AlertConfig.ButtonType.cancel {
+                    isPresented = false
+                }
+                
+                topAlertConfig = .init(title: title, message: message, buttons: [createNewButton, cancelButton])
+                
+                return
+            }
+            
+            DispatchQueue.main.async {
+                sharingCoordinator.present(parent: self, rootRecord: share.rootRecord, share: sharedRecord, response: processSharingResponse)
+            }
+        }
+    }
+    
+    private func createNew(_ share: CloudSharable) {
         
         let shareZone = CKRecordZone(zoneName: sharedZoneName ?? "SharedZone")
         
@@ -76,11 +122,11 @@ public struct CloudSharingView: View {
                 return
             }
             
-            let recordId = CKRecord.ID(recordName: itemToShare.record.recordID.recordName, zoneID: zone.zoneID)
-            let rootRecord = CKRecord(recordType: itemToShare.record.recordType, recordID: recordId)
+            let recordId = CKRecord.ID(recordName: share.rootRecord.recordID.recordName, zoneID: zone.zoneID)
+            let rootRecord = CKRecord(recordType: share.rootRecord.recordType, recordID: recordId)
             
-            itemToShare.record.allKeys().forEach {
-                if let value = itemToShare.record.value(forKey: $0) as? CKRecordValue {
+            share.rootRecord.allKeys().forEach {
+                if let value = share.rootRecord.value(forKey: $0) as? CKRecordValue {
                     rootRecord[$0] = value
                 }
             }
@@ -96,27 +142,23 @@ public struct CloudSharingView: View {
                         return
                     }
                     
-                    sharingCoordinator.present(parent: self, rootRecord: rootRecord) { result in
-                        
-                        isPresented = false
-                        
-                        switch result {
-                        case .success:
-                            topAlertConfig = .init(title: NSLocalizedString("ShareSuccess", bundle: .module, comment: "Share success")) {
-                                isPresented = false
-                            }
-                        case .failure:
-                            topAlertConfig = .init(title: NSLocalizedString("ShareFailure", bundle: .module, comment: "Share failure")) {
-                                isPresented = false
-                            }
-                        case .other:
-                            isPresented = false
-                        }
-                    }
+                    sharingCoordinator.present(parent: self, rootRecord: rootRecord, response: processSharingResponse)
                 }
             }
         }
+    }
+    
+    private func processSharingResponse(_ result: SharingResult) {
         
-        return EmptyView()
+        isPresented = false
+        
+        switch result {
+        case .success(let records):
+            topAlertConfig = .init(title: NSLocalizedString("ShareSuccess", bundle: .module, comment: "Share success")) {
+                itemToShare().done(.success((records.rootRecord, records.share)))
+            }
+        case .failure:
+            topAlertConfig = .init(title: NSLocalizedString("ShareFailure", bundle: .module, comment: "Share failure"))
+        }
     }
 }

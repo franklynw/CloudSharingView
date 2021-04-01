@@ -43,9 +43,9 @@ extension View {
     /// View extension in the style of .sheet - lacks a couple of customisation options. If more flexibility is required, use CloudSharingView(...) directly, and apply the required modifiers
     /// - Parameters:
     ///   - isPresented: binding to a Bool which controls whether or not to show the picker
-    ///   - itemToShare: the item to share, which must conform to CloudSharable
-    public func cloudSharingView(isPresented: Binding<Bool>, itemToShare: CloudSharable) -> some View {
-        modifier(CloudSharingViewPresentationModifier(content: { CloudSharingView(isPresented: isPresented, itemToShare: itemToShare)}))
+    ///   - share: closure which returns the item to share, which must conform to CloudSharable, and a completion closure where the root & shared records are returned
+    public func cloudSharingView(isPresented: Binding<Bool>, share: @escaping () -> (share: CloudSharable, done: (SharingResult) -> ())) -> some View {
+        modifier(CloudSharingViewPresentationModifier(content: { CloudSharingView(isPresented: isPresented, share: share)}))
     }
 }
 
