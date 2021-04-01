@@ -26,6 +26,15 @@ extension CloudSharingView {
         copy.container = container
         return copy
     }
+    
+    
+    /// The name of the shared zone to use for sharing - will default to "SharedZone" if not provided
+    /// - Parameter sharedZoneName: the name of the zone
+    public func sharedZoneName(_ sharedZoneName: String) -> Self {
+        var copy = self
+        copy.sharedZoneName = sharedZoneName
+        return copy
+    }
 }
 
 

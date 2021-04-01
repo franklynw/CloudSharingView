@@ -6,10 +6,11 @@
 
 import SwiftUI
 import CloudKit
+import TopAlert
 
 
 public protocol CloudSharable {
-    var sharedRecord: CKRecord { get }
+    var record: CKRecord { get }
     var shareName: String { get }
     var image: UIImage? { get }
 }
@@ -24,12 +25,14 @@ public extension CloudSharable {
 
 public struct CloudSharingView: View {
     
-    @Binding private var isPresented: Bool
-    @State private var shareResultMessage: ResultMessage?
+    @StateObject private var sharingCoordinator = SharingCoordinator()
+    @Binding internal var isPresented: Bool
+    @State private var topAlertConfig: TopAlert.AlertConfig?
     
-    private let itemToShare: CloudSharable
+    internal let itemToShare: CloudSharable
     
     internal var container: CKContainer = .default()
+    internal var sharedZoneName: String?
     internal var thumbnailImage: UIImage?
     
     private struct ResultMessage: Identifiable {
@@ -55,43 +58,64 @@ public struct CloudSharingView: View {
             presentSharingController()
         }
         
-        EmptyView()
-            .alert(item: $shareResultMessage) { shareResultMessage in
-                Alert(title: Text(shareResultMessage.value))
-            }
+        TopAlert(alertConfig: $topAlertConfig)
     }
     
     private func presentSharingController() -> EmptyView {
         
-        let share = CKShare(rootRecord: itemToShare.sharedRecord)
-        share["CKShareTitleKey"] = itemToShare.shareName
+        let shareZone = CKRecordZone(zoneName: sharedZoneName ?? "SharedZone")
         
-        let controller = SharingController(title: itemToShare.shareName) { cloudSharingController, handler in
+        container.privateCloudDatabase.save(shareZone) { zone, error in
             
-            let makeSharedList = CKModifyRecordsOperation(recordsToSave: [itemToShare.sharedRecord, share], recordIDsToDelete: nil)
-            
-            makeSharedList.modifyRecordsCompletionBlock = { record, recordId, error in
-                handler(share, CKContainer.default(), error)
+            guard error == nil, let zone = zone else {
+                DispatchQueue.main.async {
+                    topAlertConfig = .init(title: NSLocalizedString("ShareZoneUnavailable", bundle: .module, comment: "Zone unavailable")) {
+                        isPresented = false
+                    }
+                }
+                return
             }
             
-            container.privateCloudDatabase.add(makeSharedList)
+            let recordId = CKRecord.ID(recordName: itemToShare.record.recordID.recordName, zoneID: zone.zoneID)
+            let rootRecord = CKRecord(recordType: itemToShare.record.recordType, recordID: recordId)
             
-        } response: { result in
+            itemToShare.record.allKeys().forEach {
+                if let value = itemToShare.record.value(forKey: $0) as? CKRecordValue {
+                    rootRecord[$0] = value
+                }
+            }
             
-            isPresented = false
-            
-            switch result {
-            case .success:
-                shareResultMessage = ResultMessage(NSLocalizedString("ShareSuccess", bundle: .module, comment: "Share success"))
-            case .failure:
-                shareResultMessage = ResultMessage(NSLocalizedString("ShareFailure", bundle: .module, comment: "Share success"))
+            container.privateCloudDatabase.save(rootRecord) { record, error in
+                
+                DispatchQueue.main.async {
+                    
+                    guard error == nil, let rootRecord = record else {
+                        topAlertConfig = .init(title: NSLocalizedString("iCloudAccountUnavailable", bundle: .module, comment: "Share failure")) {
+                            isPresented = false
+                        }
+                        return
+                    }
+                    
+                    sharingCoordinator.present(parent: self, rootRecord: rootRecord) { result in
+                        
+                        isPresented = false
+                        
+                        switch result {
+                        case .success:
+                            topAlertConfig = .init(title: NSLocalizedString("ShareSuccess", bundle: .module, comment: "Share success")) {
+                                isPresented = false
+                            }
+                        case .failure:
+                            topAlertConfig = .init(title: NSLocalizedString("ShareFailure", bundle: .module, comment: "Share failure")) {
+                                isPresented = false
+                            }
+                        case .other:
+                            isPresented = false
+                        }
+                    }
+                }
             }
         }
-        
-        controller.availablePermissions = [.allowPrivate, .allowReadWrite]
-        controller.image = itemToShare.image ?? thumbnailImage
-    
-        UIApplication.window?.rootViewController?.present(controller, animated: true)
         
         return EmptyView()
     }

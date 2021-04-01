@@ -6,8 +6,10 @@
   
 */
 
-"ShareList" = "Share '%@'";
-"ShareGenericList" = "Share your list";
+"Share" = "Share '%@'";
+"ShareGeneric" = "Share";
 "Item" = "Item";
-"ShareSuccess" = "The invitation to share your list was sent successfully!";
-"ShareFailure" = "We were unable to share your list, but we're not sure why";
+"ShareSuccess" = "The invitation to share was sent successfully!";
+"ShareFailure" = "We were unable to share, but we're not sure why";
+"iCloudAccountUnavailable" = "We were unable to share - are you sure that you're signed into iCloud?";
+"ShareZoneUnavailable" = "We were unable to share - seems like there's a problem with the share 'zones'";
