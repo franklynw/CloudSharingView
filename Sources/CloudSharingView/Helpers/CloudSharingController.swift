@@ -17,6 +17,7 @@ class CloudSharingController: UICloudSharingController {
     init(isPresented: Binding<Bool>, share: CKShare, container: CKContainer) {
         _isPresented = isPresented
         super.init(share: share, container: container)
+        view.backgroundColor = .systemBackground // for whatever reason, if we don't set this, it's see-through...
     }
     
     init(isPresented: Binding<Bool>, preparationHandler: @escaping (UICloudSharingController, @escaping (CKShare?, CKContainer?, Error?) -> Void) -> Void) {
@@ -24,7 +25,8 @@ class CloudSharingController: UICloudSharingController {
         super.init(preparationHandler: preparationHandler)
     }
     
-    deinit {
+    override func viewDidDisappear(_ animated: Bool) {
+        super.viewDidDisappear(animated)
         isPresented = false // just in case it gets dismissed for any uncovered reason
     }
 }

@@ -11,28 +11,11 @@ import CloudKit
 
 extension CloudSharingView {
     
-    /// The thumbnail image shown in the sharing controller
-    /// - Parameter thumbnailImage: a UIImage
-    public func thumbnailImage(_ thumbnailImage: UIImage?) -> Self {
-        var copy = self
-        copy.thumbnailImage = thumbnailImage
-        return copy
-    }
-    
     /// The CloudKit container used by the sharing - defaults to .default()
     /// - Parameter container: a CKContainer
     public func container(_ container: CKContainer) -> Self {
         var copy = self
         copy.container = container
-        return copy
-    }
-    
-    
-    /// The name of the shared zone to use for sharing - will default to "SharedZone" if not provided
-    /// - Parameter sharedZoneName: the name of the zone
-    public func sharedZoneName(_ sharedZoneName: String) -> Self {
-        var copy = self
-        copy.sharedZoneName = sharedZoneName
         return copy
     }
 }
@@ -44,7 +27,7 @@ extension View {
     /// - Parameters:
     ///   - isPresented: binding to a Bool which controls whether or not to show the picker
     ///   - share: closure which returns the item to share, which must conform to CloudSharable, and a completion closure where the root & shared records are returned
-    public func cloudSharingView(isPresented: Binding<Bool>, share: @escaping () -> (share: CloudSharable, done: (SharingResult) -> ())) -> some View {
+    public func cloudSharingView(isPresented: Binding<Bool>, share: @escaping () -> (share: CloudSharable, done: (ShareResult) -> ())) -> some View {
         modifier(CloudSharingViewPresentationModifier(content: { CloudSharingView(isPresented: isPresented, share: share)}))
     }
 }

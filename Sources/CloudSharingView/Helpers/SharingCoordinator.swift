@@ -13,20 +13,17 @@ import CloudKit
 class SharingCoordinator: NSObject, ObservableObject {
     
     enum SharingError: Error {
+        case noZone
         case nilShare
     }
     
     private var parent: CloudSharingView!
-    private var response: ((SharingResult) -> ())!
-    private var rootRecord: CKRecord?
-    private var share: CKShare?
+    private var response: ((ShareResult) -> ())!
     
     
-    func present(parent: CloudSharingView, rootRecord: CKRecord, share: CKShare, response: @escaping (SharingResult) -> ()) {
+    func presentAlreadyShared(parent: CloudSharingView, share: CKShare, response: @escaping (ShareResult) -> ()) {
         
         self.parent = parent
-        self.rootRecord = rootRecord
-        self.share = share
         self.response = response
         
         let sharingController = CloudSharingController(isPresented: parent.$isPresented, share: share, container: parent.container)
@@ -34,29 +31,48 @@ class SharingCoordinator: NSObject, ObservableObject {
         sharingController.availablePermissions = [.allowPrivate, .allowReadWrite]
         sharingController.delegate = self
         
+        sharingController.popoverPresentationController?.sourceView = nil
+        
         UIApplication.window?.rootViewController?.present(sharingController, animated: true)
     }
     
-    func present(parent: CloudSharingView, rootRecord: CKRecord, response: @escaping (SharingResult) -> ()) {
+    func presentUnshared(parent: CloudSharingView, response: @escaping (ShareResult) -> ()) {
+        
+        guard let sharable = parent.itemToShare()?.sharable, let record = sharable.rootRecord, let zoneId = sharable.zone?.zoneID else {
+            response(.failure(SharingError.noZone))
+            return
+        }
         
         self.parent = parent
-        self.rootRecord = rootRecord
         self.response = response
         
-        let sharingController = CloudSharingController(isPresented: parent.$isPresented) { cloudSharingController, handler in
+        let sharingController = CloudSharingController(isPresented: parent.$isPresented) { _, handler in
             
-            let share = CKShare(rootRecord: rootRecord)
-            share["CKShareTitleKey"] = parent.itemToShare().share?.shareName
+            let shareId = CKRecord.ID(recordName: UUID().uuidString, zoneID: zoneId)
+            var share = CKShare(rootRecord: record, shareID: shareId)
+            
+            share[CKShare.SystemFieldKey.title] = sharable.shareName
+            share[CKShare.SystemFieldKey.thumbnailImageData] = sharable.thumbnailImage?.pngData()
             share.publicPermission = .none
             
-            let makeSharedList = CKModifyRecordsOperation(recordsToSave: [rootRecord, share], recordIDsToDelete: nil)
+            let makeShared = CKModifyRecordsOperation(recordsToSave: [record, share], recordIDsToDelete: nil)
             
-            makeSharedList.modifyRecordsCompletionBlock = { record, recordId, error in
+            makeShared.modifyRecordsCompletionBlock = { records, recordIds, error in
+                
+                if let ckError = handleCloudKitError(error, operation: .modifyRecords, affectedObjects: [shareId]) {
+                    if let serverVersion = ckError.serverRecord as? CKShare {
+                        share = serverVersion
+                    }
+//                    if ckError.code == .serverRecordChanged {
+//                        handler(share, parent.container, nil)
+//                        return
+//                    }
+                }
+                
                 handler(share, parent.container, error)
-                self.share = share
             }
             
-            parent.container.privateCloudDatabase.add(makeSharedList)
+            parent.container.privateCloudDatabase.add(makeShared)
         }
         
         sharingController.availablePermissions = [.allowPrivate, .allowReadWrite]
@@ -71,12 +87,12 @@ extension SharingCoordinator: UICloudSharingControllerDelegate {
     
     func cloudSharingControllerDidSaveShare(_ csc: UICloudSharingController) {
         
-        guard let rootRecord = rootRecord, let share = self.share else {
+        guard let share = csc.share, let rootRecord = parent.itemToShare()?.sharable?.rootRecord else {
             response(.failure(SharingError.nilShare)) // shouldn't be able to happen
             return
         }
         
-        response(.success((rootRecord, share)))
+        response(.shared(share: share, rootRecord: rootRecord))
     }
     
     func cloudSharingController(_ csc: UICloudSharingController, failedToSaveShareWithError error: Error) {
@@ -84,18 +100,24 @@ extension SharingCoordinator: UICloudSharingControllerDelegate {
     }
     
     func cloudSharingControllerDidStopSharing(_ csc: UICloudSharingController) {
-        // todo
+        
+        guard let rootRecord = parent.itemToShare()?.sharable?.rootRecord else {
+            response(.failure(SharingError.nilShare)) // shouldn't be able to happen
+            return
+        }
+        
+        response(.stoppedSharing(rootRecord: rootRecord))
     }
     
     func itemThumbnailData(for csc: UICloudSharingController) -> Data? {
-        return parent.thumbnailImage?.pngData() ?? parent.itemToShare().share?.image?.pngData()
+        return parent.itemToShare()?.sharable?.thumbnailImage?.pngData()
     }
     
     func itemTitle(for csc: UICloudSharingController) -> String? {
         
         let shareTitle = NSLocalizedString("Share", bundle: .module, comment: "Share '%@'")
         
-        if let title = parent.itemToShare().share?.shareName {
+        if let title = parent.itemToShare()?.sharable?.shareName {
             return String(format: shareTitle, title)
         }
                 

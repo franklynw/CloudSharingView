@@ -10,8 +10,10 @@
 "ShareGeneric" = "Share";
 "Item" = "Item";
 "ShareSuccess" = "The invitation to share was sent successfully!";
+"StoppedSharing" = "You are no longer sharing this item";
 "ShareFailure" = "We were unable to share, but we're not sure why";
 "iCloudAccountUnavailable" = "We were unable to share - are you sure that you're signed into iCloud?";
 "ShareZoneUnavailable" = "We were unable to share - seems like there's a problem with the share 'zones'";
 "ShareDeletedTitle" = "The original shared record seems to have been deleted";
 "ShareDeletedMessage" = "Would you like to create another?";
+"CreateNewShareButton" = "Create New";
