@@ -92,18 +92,7 @@ public struct CloudSharingView: View {
         fetch.fetchRecordsCompletionBlock = { records, error in
             
             guard handleCloudKitError(error, operation: .fetchRecords, affectedObjects: [shareRecordId]) == nil, let share = records?[shareRecordId] as? CKShare else {
-                
-                isPresented = false
-                
-                let title = NSLocalizedString("ShareDeletedTitle", bundle: .module, comment: "Share deleted title")
-                let message = NSLocalizedString("ShareDeletedMessage", bundle: .module, comment: "Share deleted message")
-                
-                let createNewButton = TopAlert.AlertConfig.ButtonType.default(title: NSLocalizedString("CreateNewShareButton", bundle: .module, comment: "Create New")) {
-                    createNew()
-                }
-                
-                topAlertConfig = .init(title: title, message: message, buttons: [createNewButton, .cancel()])
-                
+                createNew()
                 return
             }
             
